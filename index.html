@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Booking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-400 to-purple-500">
+    <!-- Loading Animation -->
+    <div id="loading" class="loading">
+        <div class="glass p-8 rounded-lg">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        </div>
+    </div>
+
+    <!-- Main Navigation -->
+    <nav id="mainNav" class="glass fixed w-full top-0 z-50">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-white text-2xl font-bold">Hall Booking</h1>
+                <div class="flex gap-4" id="navButtons">
+                    <button onclick="showLogin('user')" class="px-4 py-2 rounded-lg glass text-white hover:bg-white/30 transition">User Login</button>
+                    <button onclick="showLogin('vendor')" class="px-4 py-2 rounded-lg glass text-white hover:bg-white/30 transition">Vendor Login</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto px-4 pt-24 pb-8">
+        <div id="mainContent" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic Content Here -->
+        </div>
+    </main>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-11/12 max-w-md">
+            <div class="glass rounded-lg p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="loginTitle" class="text-2xl font-bold text-white"></h2>
+                    <button onclick="closeModal('loginModal')" class="text-white hover:text-gray-300">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <input type="email" id="email" placeholder="Email" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <input type="password" id="password" placeholder="Password" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <button type="submit" class="w-full py-2 rounded glass text-white hover:bg-white/30 transition">
+                        Login
+                    </button>
+                    <p class="text-white text-center">
+                        Don't have an account? 
+                        <button type="button" onclick="showRegister()" class="underline hover:text-gray-300">Register</button>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal">
+        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-11/12 max-w-md">
+            <div class="glass rounded-lg p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="registerTitle" class="text-2xl font-bold text-white"></h2>
+                    <button onclick="closeModal('registerModal')" class="text-white hover:text-gray-300">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4">
+                    <input type="text" id="name" placeholder="Full Name" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <input type="email" id="regEmail" placeholder="Email" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <input type="tel" id="phone" placeholder="Phone Number" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <input type="password" id="regPassword" placeholder="Password" required
+                        class="w-full p-2 rounded glass text-white placeholder-white/70">
+                    <button type="submit" class="w-full py-2 rounded glass text-white hover:bg-white/30 transition">
+                        Register
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize MongoDB app
+        const APP_SLUG = 'hall-booking-system-' + Math.random().toString(36).substring(7);
+        let currentUser = null;
+        let currentUserType = null;
+
+        // Show loading animation
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading animation
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Show modal
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Show login modal
+        function showLogin(type) {
+            currentUserType = type;
+            document.getElementById('loginTitle').textContent = type === 'user' ? 'User Login' : 'Vendor Login';
+            showModal('loginModal');
+        }
+
+        // Show register modal
+        function showRegister() {
+            closeModal('loginModal');
+            document.getElementById('registerTitle').textContent = 
+                currentUserType === 'user' ? 'User Registration' : 'Vendor Registration';
+            showModal('registerModal');
+        }
+
+        // Handle login
+        async function handleLogin(event) {
+            event.preventDefault();
+            showLoading();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: currentUserType + 's',
+                        conditions: { email, password }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.result.read && data.result.read.length > 0) {
+                    currentUser = data.result.read[0];
+                    closeModal('loginModal');
+                    updateUI();
+                } else {
+                    alert('Invalid credentials');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed');
+            }
+
+            hideLoading();
+        }
+
+        // Handle registration
+        async function handleRegister(event) {
+            event.preventDefault();
+            showLoading();
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('regEmail').value;
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('regPassword').value;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: currentUserType + 's',
+                        data: { name, email, phone, password }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Registration successful! Please login.');
+                    closeModal('registerModal');
+                    showLogin(currentUserType);
+                } else {
+                    alert('Registration failed');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('Registration failed');
+            }
+
+            hideLoading();
+        }
+
+        // Update UI based on user type
+        function updateUI() {
+            const navButtons = document.getElementById('navButtons');
+            const mainContent = document.getElementById('mainContent');
+
+            navButtons.innerHTML = `
+                <span class="text-white">Welcome, ${currentUser.name}</span>
+                <button onclick="logout()" class="px-4 py-2 rounded-lg glass text-white hover:bg-white/30 transition">
+                    Logout
+                </button>
+            `;
+
+            if (currentUserType === 'vendor') {
+                showVendorDashboard();
+            } else {
+                showUserDashboard();
+            }
+        }
+
+        // Show vendor dashboard
+        function showVendorDashboard() {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                    <div class="glass p-6 rounded-lg">
+                        <h2 class="text-2xl font-bold text-white mb-4">Vendor Dashboard</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <button onclick="showAddHallForm()" 
+                                class="p-6 glass rounded-lg text-white hover:bg-white/30 transition">
+                                <i class="bi bi-plus-circle text-3xl mb-2"></i>
+                                <h3 class="text-xl font-bold">Add New Hall</h3>
+                            </button>
+                            <button onclick="showBookings()"
+                                class="p-6 glass rounded-lg text-white hover:bg-white/30 transition">
+                                <i class="bi bi-calendar-check text-3xl mb-2"></i>
+                                <h3 class="text-xl font-bold">View Bookings</h3>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Show user dashboard
+        function showUserDashboard() {
+            loadAvailableHalls();
+        }
+
+        // Load available halls
+        async function loadAvailableHalls() {
+            showLoading();
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                    <div class="glass p-6 rounded-lg mb-6">
+                        <h2 class="text-2xl font-bold text-white mb-4">Available Halls</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="hallsList"></div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'halls'
+                    })
+                });
+
+                const data = await response.json();
+                const hallsList = document.getElementById('hallsList');
+                
+                if (data.result.read && data.result.read.length > 0) {
+                    data.result.read.forEach(hall => {
+                        hallsList.innerHTML += `
+                            <div class="glass p-6 rounded-lg">
+                                <h3 class="text-xl font-bold text-white mb-2">${hall.name}</h3>
+                                <p class="text-white mb-2">Capacity: ${hall.capacity}</p>
+                                <p class="text-white mb-2">Rate: $${hall.rate}/hour</p>
+                                <button onclick="bookHall('${hall._id}')"
+                                    class="w-full py-2 mt-4 rounded glass text-white hover:bg-white/30 transition">
+                                    Book Now
+                                </button>
+                            </div>
+                        `;
+                    });
+                } else {
+                    hallsList.innerHTML = `
+                        <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                            <p class="text-white text-center">No halls available</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading halls:', error);
+                alert('Failed to load halls');
+            }
+
+            hideLoading();
+        }
+
+        // Logout function
+        function logout() {
+            currentUser = null;
+            currentUserType = null;
+            const navButtons = document.getElementById('navButtons');
+            navButtons.innerHTML = `
+                <button onclick="showLogin('user')" class="px-4 py-2 rounded-lg glass text-white hover:bg-white/30 transition">
+                    User Login
+                </button>
+                <button onclick="showLogin('vendor')" class="px-4 py-2 rounded-lg glass text-white hover:bg-white/30 transition">
+                    Vendor Login
+                </button>
+            `;
+            document.getElementById('mainContent').innerHTML = '';
+        }
+
+        // Show add hall form
+        function showAddHallForm() {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                    <div class="glass p-6 rounded-lg">
+                        <h2 class="text-2xl font-bold text-white mb-4">Add New Hall</h2>
+                        <form onsubmit="handleAddHall(event)" class="space-y-4">
+                            <input type="text" id="hallName" placeholder="Hall Name" required
+                                class="w-full p-2 rounded glass text-white placeholder-white/70">
+                            <input type="number" id="capacity" placeholder="Capacity" required
+                                class="w-full p-2 rounded glass text-white placeholder-white/70">
+                            <input type="number" id="rate" placeholder="Rate per hour" required
+                                class="w-full p-2 rounded glass text-white placeholder-white/70">
+                            <textarea id="description" placeholder="Description" required
+                                class="w-full p-2 rounded glass text-white placeholder-white/70"></textarea>
+                            <button type="submit" class="w-full py-2 rounded glass text-white hover:bg-white/30 transition">
+                                Add Hall
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Handle add hall
+        async function handleAddHall(event) {
+            event.preventDefault();
+            showLoading();
+
+            const hallData = {
+                name: document.getElementById('hallName').value,
+                capacity: parseInt(document.getElementById('capacity').value),
+                rate: parseFloat(document.getElementById('rate').value),
+                description: document.getElementById('description').value,
+                vendorId: currentUser._id
+            };
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'halls',
+                        data: hallData
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Hall added successfully!');
+                    showVendorDashboard();
+                } else {
+                    alert('Failed to add hall');
+                }
+            } catch (error) {
+                console.error('Error adding hall:', error);
+                alert('Failed to add hall');
+            }
+
+            hideLoading();
+        }
+
+        // Show bookings
+        async function showBookings() {
+            showLoading();
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                    <div class="glass p-6 rounded-lg">
+                        <h2 class="text-2xl font-bold text-white mb-4">Bookings</h2>
+                        <div id="bookingsList" class="space-y-4"></div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'bookings',
+                        conditions: { vendorId: currentUser._id }
+                    })
+                });
+
+                const data = await response.json();
+                const bookingsList = document.getElementById('bookingsList');
+                
+                if (data.result.read && data.result.read.length > 0) {
+                    data.result.read.forEach(booking => {
+                        bookingsList.innerHTML += `
+                            <div class="glass p-4 rounded-lg">
+                                <h3 class="text-lg font-bold text-white">${booking.hallName}</h3>
+                                <p class="text-white">Date: ${new Date(booking.date).toLocaleDateString()}</p>
+                                <p class="text-white">Time: ${booking.time}</p>
+                                <p class="text-white">Status: ${booking.status}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    bookingsList.innerHTML = '<p class="text-white text-center">No bookings found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+                alert('Failed to load bookings');
+            }
+
+            hideLoading();
+        }
+
+        // Book hall
+        async function bookHall(hallId) {
+            if (!currentUser) {
+                alert('Please login to book a hall');
+                showLogin('user');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // First, check if hall is available
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'halls',
+                        id: hallId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.result.read && data.result.read.length > 0) {
+                    const hall = data.result.read[0];
+                    const mainContent = document.getElementById('mainContent');
+                    mainContent.innerHTML = `
+                        <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                            <div class="glass p-6 rounded-lg">
+                                <h2 class="text-2xl font-bold text-white mb-4">Book ${hall.name}</h2>
+                                <form onsubmit="handleBooking(event, '${hallId}')" class="space-y-4">
+                                    <input type="date" id="bookingDate" required min="${new Date().toISOString().split('T')[0]}"
+                                        class="w-full p-2 rounded glass text-white">
+                                    <select id="bookingTime" required
+                                        class="w-full p-2 rounded glass text-white bg-transparent">
+                                        ${generateTimeSlots()}
+                                    </select>
+                                    <button type="submit" class="w-full py-2 rounded glass text-white hover:bg-white/30 transition">
+                                        Confirm Booking
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    alert('Hall not found');
+                }
+            } catch (error) {
+                console.error('Error loading hall:', error);
+                alert('Failed to load hall details');
+            }
+
+            hideLoading();
+        }
+
+        // Generate time slots
+        function generateTimeSlots() {
+            let slots = '';
+            for (let hour = 9; hour <= 21; hour++) {
+                const time = `${hour.toString().padStart(2, '0')}:00`;
+                slots += `<option value="${time}">${time}</option>`;
+            }
+            return slots;
+        }
+
+        // Handle booking
+        async function handleBooking(event, hallId) {
+            event.preventDefault();
+            showLoading();
+
+            const date = document.getElementById('bookingDate').value;
+            const time = document.getElementById('bookingTime').value;
+
+            try {
+                // Check if hall is already booked for the selected date and time
+                const checkResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'read',
+                        collection: 'bookings',
+                        conditions: { hallId, date, time }
+                    })
+                });
+
+                const checkData = await checkResponse.json();
+                
+                if (checkData.result.read && checkData.result.read.length > 0) {
+                    alert('This hall is already booked for the selected date and time');
+                    return;
+                }
+
+                // Create booking
+                const bookingResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer S6AaqYDavUMUm1fyXdeasewOcVA3',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug: APP_SLUG,
+                        action: 'create',
+                        collection: 'bookings',
+                        data: {
+                            hallId,
+                            userId: currentUser._id,
+                            date,
+                            time,
+                            status: 'pending'
+                        }
+                    })
+                });
+
+                const bookingData = await bookingResponse.json();
+                
+                if (bookingData.success) {
+                    alert('Booking successful!');
+                    showUserDashboard();
+                } else {
+                    alert('Booking failed');
+                }
+            } catch (error) {
+                console.error('Error creating booking:', error);
+                alert('Booking failed');
+            }
+
+            hideLoading();
+        }
+
+        // Initialize the app
+        window.onload = function() {
+            const savedUser = localStorage.getItem('currentUser');
+            const savedUserType = localStorage.getItem('currentUserType');
+            
+            if (savedUser && savedUserType) {
+                currentUser = JSON.parse(savedUser);
+                currentUserType = savedUserType;
+                updateUI();
+            }
+        };
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
